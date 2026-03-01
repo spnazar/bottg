@@ -1,6 +1,6 @@
 import requests
 
-TOKEN = "UAW6f2eOVPCgs2DLkF2s6bp0CGxCzLX/EIwnPDrp/mU="
+TOKEN = ""
 
 resp = requests.get(
     "https://kaspi.kz/shop/api/v2/orders/",
@@ -13,4 +13,5 @@ resp = requests.get(
     timeout=30,
 )
 print(f"Статус: {resp.status_code}")
+
 print(f"Ответ: {resp.text[:500]}")
