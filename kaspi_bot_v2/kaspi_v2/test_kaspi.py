@@ -1,7 +1,7 @@
 import aiohttp
 import asyncio
 
-TOKEN = "https://l.kaspi.kz/shop/8q7QRK9zRRNzFpf"
+TOKEN = ""
 
 async def test():
     headers = {"Authorization": f"Bearer {TOKEN}"}
@@ -18,5 +18,6 @@ async def test():
                 print(f"Ответ: {text[:300]}")
     except Exception as e:
         print(f"Ошибка: {type(e).__name__}: {e}")
+
 
 asyncio.run(test())
