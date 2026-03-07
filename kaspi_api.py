@@ -1,14 +1,12 @@
 """
 kaspi_api.py
-
-Использует playwright (настоящий браузер Chrome) чтобы обойти блокировку Kaspi.
 """
 
 import asyncio
 import random
 import time
 import json
-import re
+import os
 
 from config import DEMO_MODE
 from mock_data import fake_order, fake_products
@@ -29,7 +27,6 @@ def _since_timestamp() -> int:
 
 
 async def _fetch(token: str, url: str, params: dict = None) -> dict | None:
-    """Делаем запрос через playwright (настоящий Chrome)"""
     from playwright.async_api import async_playwright
 
     if params:
@@ -38,18 +35,36 @@ async def _fetch(token: str, url: str, params: dict = None) -> dict | None:
     else:
         full_url = url
 
+    # Ищем chromium в системе
+    chromium_paths = [
+        "/usr/bin/chromium",
+        "/usr/bin/chromium-browser",
+        "/usr/bin/google-chrome",
+        "/nix/store",  # Railway nix путь
+    ]
+
     try:
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
+            # Пробуем найти системный браузер
+            executable = None
+            for path in chromium_paths:
+                if os.path.exists(path) and os.path.isfile(path):
+                    executable = path
+                    break
+
+            launch_opts = {"headless": True}
+            if executable:
+                launch_opts["executable_path"] = executable
+                print(f"[kaspi_api] Используем браузер: {executable}")
+
+            browser = await p.chromium.launch(**launch_opts)
             context = await browser.new_context(
                 extra_http_headers=_headers(token)
             )
             page = await context.new_page()
-
             resp = await page.goto(full_url, timeout=30000)
             body = await resp.body()
             text = body.decode("utf-8")
-
             await browser.close()
             return json.loads(text)
 
