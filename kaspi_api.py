@@ -1,8 +1,10 @@
 """
 kaspi_api.py
+
+Kaspi API поддерживает только заказы.
+Товары через официальный API недоступны.
 """
 
-import asyncio
 import random
 import time
 import json
@@ -19,7 +21,7 @@ def _headers(token: str) -> dict:
         "X-Auth-Token": token,
         "Accept": "application/vnd.api+json",
         "Content-Type": "application/vnd.api+json",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     }
 
 
@@ -39,11 +41,10 @@ async def _fetch(token: str, url: str, params: dict = None) -> dict | None:
             print(f"[kaspi_api] {url} → {resp.status_code}")
             if resp.status_code == 200:
                 return resp.json()
-            else:
-                print(f"[kaspi_api] Ответ: {resp.text[:200]}")
-                return None
+            print(f"[kaspi_api] Ответ: {resp.text[:300]}")
+            return None
     except Exception as e:
-        print(f"[kaspi_api] _fetch error: {type(e).__name__}: {e}")
+        print(f"[kaspi_api] error: {type(e).__name__}: {e}")
         return None
 
 
@@ -63,7 +64,7 @@ async def get_new_orders(token: str) -> list:
         params={
             "page[number]": 0,
             "page[size]": 50,
-            "filter[orders][status]": "NEW",
+            "filter[orders][status]": "APPROVED_BY_BANK",
             "filter[orders][creationDate][$ge]": _since_timestamp(),
         }
     )
@@ -74,6 +75,26 @@ async def get_new_orders(token: str) -> list:
     return _parse_orders(data)
 
 
+async def get_order_entries(token: str, order_id: str) -> list:
+    """Получаем товары конкретного заказа"""
+    if DEMO_MODE:
+        return []
+
+    data = await _fetch(token, f"{KASPI_BASE}/orders/{order_id}/entries")
+    if not data:
+        return []
+
+    entries = []
+    for item in data.get("data", []):
+        attrs = item.get("attributes", {})
+        entries.append({
+            "name":     attrs.get("name", "Товар"),
+            "quantity": attrs.get("quantity", 1),
+            "price":    attrs.get("basePrice", 0),
+        })
+    return entries
+
+
 def _parse_orders(raw: dict) -> list:
     result = []
     for item in raw.get("data", []):
@@ -82,11 +103,11 @@ def _parse_orders(raw: dict) -> list:
         result.append({
             "id":               item.get("id"),
             "code":             attrs.get("code", ""),
-            "status":           attrs.get("status", "NEW"),
+            "status":           attrs.get("status", ""),
             "totalPrice":       attrs.get("totalPrice", 0),
             "product_name":     "Товар",
             "quantity":         1,
-            "delivery_address": attrs.get("originAddress", {}).get("address", {}).get("formattedAddress", "не указан"),
+            "delivery_address": attrs.get("deliveryAddress", {}).get("formattedAddress", "не указан"),
             "customer_name":    customer.get("name", "скрыто"),
             "created_at":       attrs.get("creationDate", 0),
         })
@@ -94,27 +115,7 @@ def _parse_orders(raw: dict) -> list:
 
 
 async def get_products(token: str) -> list:
+    """Товары через API недоступны — возвращаем пустой список"""
     if DEMO_MODE:
         return fake_products()
-
-    data = await _fetch(
-        token,
-        f"{KASPI_BASE}/masterproducts/",
-        params={"page[number]": 0, "page[size]": 100}
-    )
-
-    if not data:
-        return []
-
-    products = []
-    for item in data.get("data", []):
-        attrs = item.get("attributes", {})
-        products.append({
-            "id":       item.get("id"),
-            "name":     attrs.get("name", ""),
-            "price":    attrs.get("price", 0),
-            "quantity": attrs.get("availableQuantity", 0),
-            "url":      attrs.get("pageLink", ""),
-        })
-
-    return products
+    return []
