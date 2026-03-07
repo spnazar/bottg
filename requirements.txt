@@ -3,3 +3,5 @@ aiohttp==3.9.1
 apscheduler==3.10.4
 beautifulsoup4==4.12.2
 python-dotenv==1.0.0
+requests==2.31.0
+pydantic==1.10.13
