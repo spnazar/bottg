@@ -6,7 +6,7 @@ import asyncio
 import random
 import time
 import json
-import os
+import httpx
 
 from config import DEMO_MODE
 from mock_data import fake_order, fake_products
@@ -19,6 +19,7 @@ def _headers(token: str) -> dict:
         "X-Auth-Token": token,
         "Accept": "application/vnd.api+json",
         "Content-Type": "application/vnd.api+json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     }
 
 
@@ -27,49 +28,22 @@ def _since_timestamp() -> int:
 
 
 async def _fetch(token: str, url: str, params: dict = None) -> dict | None:
-    from playwright.async_api import async_playwright
-
-    if params:
-        query = "&".join(f"{k}={v}" for k, v in params.items())
-        full_url = f"{url}?{query}"
-    else:
-        full_url = url
-
-    # Ищем chromium в системе
-    chromium_paths = [
-        "/usr/bin/chromium",
-        "/usr/bin/chromium-browser",
-        "/usr/bin/google-chrome",
-        "/nix/store",  # Railway nix путь
-    ]
-
     try:
-        async with async_playwright() as p:
-            # Пробуем найти системный браузер
-            executable = None
-            for path in chromium_paths:
-                if os.path.exists(path) and os.path.isfile(path):
-                    executable = path
-                    break
-
-            launch_opts = {"headless": True}
-            if executable:
-                launch_opts["executable_path"] = executable
-                print(f"[kaspi_api] Используем браузер: {executable}")
-
-            browser = await p.chromium.launch(**launch_opts)
-            context = await browser.new_context(
-                extra_http_headers=_headers(token)
-            )
-            page = await context.new_page()
-            resp = await page.goto(full_url, timeout=30000)
-            body = await resp.body()
-            text = body.decode("utf-8")
-            await browser.close()
-            return json.loads(text)
-
+        async with httpx.AsyncClient(
+            headers=_headers(token),
+            timeout=60.0,
+            verify=False,
+            follow_redirects=True,
+        ) as client:
+            resp = await client.get(url, params=params)
+            print(f"[kaspi_api] {url} → {resp.status_code}")
+            if resp.status_code == 200:
+                return resp.json()
+            else:
+                print(f"[kaspi_api] Ответ: {resp.text[:200]}")
+                return None
     except Exception as e:
-        print(f"[kaspi_api] _fetch error: {e}")
+        print(f"[kaspi_api] _fetch error: {type(e).__name__}: {e}")
         return None
 
 
