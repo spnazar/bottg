@@ -24,7 +24,7 @@ from kaspi_api import test_token, get_products
 from scheduler import setup_scheduler
 
 if not BOT_TOKEN:
-    raise RuntimeError(f"BOT_TOKEN не найден! Все переменные: {list(os.environ.keys())}")
+    raise RuntimeError("BOT_TOKEN не найден! Добавь его в файл .env")
 
 bot = Bot(token=BOT_TOKEN)
 dp  = Dispatcher(storage=MemoryStorage())
