@@ -1,9 +1,6 @@
 import os
-from dotenv import load_dotenv
 
-load_dotenv()
-
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
 
 # Переключи на False когда получишь токен от сестры
 DEMO_MODE = False
