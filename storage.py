@@ -1,24 +1,14 @@
 """
-storage.py
-
-Хранит данные в обычных JSON файлах — никакой базы данных не нужно.
-Три файла:
-  sellers.json   — продавцы и их токены
-  orders.json    — ID заказов которые уже отправили в Telegram
-  prices.json    — последние известные цены конкурентов
+storage.py — хранение данных в JSON файлах
 """
 
 import json
 import os
 
-SELLERS_FILE = "sellers.json"
-ORDERS_FILE  = "orders.json"
-PRICES_FILE  = "prices.json"
+SELLERS_FILE  = "sellers.json"
+ORDERS_FILE   = "orders.json"
+PRODUCTS_FILE = "products.json"
 
-
-# -------------------------------------------------------
-# Вспомогательные функции
-# -------------------------------------------------------
 
 def _read(path: str, default):
     if os.path.exists(path):
@@ -36,7 +26,7 @@ def _write(path: str, data):
 # Продавцы
 # -------------------------------------------------------
 
-def get_all_sellers() -> list[dict]:
+def get_all_sellers() -> list:
     return _read(SELLERS_FILE, [])
 
 
@@ -49,16 +39,12 @@ def get_seller(telegram_id: int) -> dict | None:
 
 def save_seller(telegram_id: int, kaspi_token: str, shop_name: str):
     sellers = get_all_sellers()
-
-    # Обновляем если уже есть
     for s in sellers:
         if s["telegram_id"] == telegram_id:
             s["kaspi_token"] = kaspi_token
             s["shop_name"]   = shop_name
             _write(SELLERS_FILE, sellers)
             return
-
-    # Добавляем нового
     sellers.append({
         "telegram_id": telegram_id,
         "kaspi_token": kaspi_token,
@@ -68,37 +54,79 @@ def save_seller(telegram_id: int, kaspi_token: str, shop_name: str):
 
 
 # -------------------------------------------------------
-# Заказы — просто храним ID которые уже обработали
+# Заказы
 # -------------------------------------------------------
 
 def is_order_seen(order_id: str) -> bool:
-    seen = _read(ORDERS_FILE, [])
-    return order_id in seen
+    return order_id in _read(ORDERS_FILE, [])
 
 
 def mark_order_seen(order_id: str):
     seen = _read(ORDERS_FILE, [])
     if order_id not in seen:
         seen.append(order_id)
-        # Храним последние 10 000 заказов чтобы файл не рос бесконечно
         if len(seen) > 10000:
             seen = seen[-10000:]
         _write(ORDERS_FILE, seen)
 
 
 # -------------------------------------------------------
-# Цены — храним последнюю известную цену конкурента
-# чтобы не спамить одно и то же уведомление каждые 30 минут
+# Товары для мониторинга цен
 # -------------------------------------------------------
 
-def get_last_competitor_price(seller_id: int, product_id: str) -> int | None:
-    prices = _read(PRICES_FILE, {})
-    key = f"{seller_id}_{product_id}"
-    return prices.get(key)
+def get_products_for_seller(telegram_id: int) -> list:
+    """Возвращает список товаров которые продавец добавил для мониторинга"""
+    all_products = _read(PRODUCTS_FILE, {})
+    return all_products.get(str(telegram_id), [])
 
 
-def save_competitor_price(seller_id: int, product_id: str, price: int):
-    prices = _read(PRICES_FILE, {})
-    key = f"{seller_id}_{product_id}"
-    prices[key] = price
-    _write(PRICES_FILE, prices)
+def add_product(telegram_id: int, url: str, name: str = ""):
+    """Добавляем товар для мониторинга"""
+    all_products = _read(PRODUCTS_FILE, {})
+    key = str(telegram_id)
+    if key not in all_products:
+        all_products[key] = []
+
+    # Не добавляем дубликаты
+    for p in all_products[key]:
+        if p["url"] == url:
+            return False
+
+    all_products[key].append({
+        "url":        url,
+        "name":       name,
+        "last_price": None,  # последняя известная цена конкурента
+    })
+    _write(PRODUCTS_FILE, all_products)
+    return True
+
+
+def remove_product(telegram_id: int, index: int):
+    """Удаляем товар из мониторинга по номеру"""
+    all_products = _read(PRODUCTS_FILE, {})
+    key = str(telegram_id)
+    products = all_products.get(key, [])
+    if 0 <= index < len(products):
+        removed = products.pop(index)
+        all_products[key] = products
+        _write(PRODUCTS_FILE, all_products)
+        return removed
+    return None
+
+
+def update_last_competitor_price(telegram_id: int, url: str, price: int):
+    """Сохраняем последнюю цену конкурента чтобы не спамить"""
+    all_products = _read(PRODUCTS_FILE, {})
+    key = str(telegram_id)
+    for p in all_products.get(key, []):
+        if p["url"] == url:
+            p["last_price"] = price
+            _write(PRODUCTS_FILE, all_products)
+            return
+
+
+def get_last_competitor_price(telegram_id: int, url: str) -> int | None:
+    for p in get_products_for_seller(telegram_id):
+        if p["url"] == url:
+            return p.get("last_price")
+    return None
