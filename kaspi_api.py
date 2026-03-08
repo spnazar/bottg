@@ -1,13 +1,9 @@
 """
 kaspi_api.py
-
-Kaspi API поддерживает только заказы.
-Товары через официальный API недоступны.
 """
 
 import random
 import time
-import json
 import httpx
 
 from config import DEMO_MODE
@@ -26,7 +22,8 @@ def _headers(token: str) -> dict:
 
 
 def _since_timestamp() -> int:
-    return int(time.time() * 1000) - (7 * 24 * 60 * 60 * 1000)
+    # Только последние 2 часа — чтобы не приходили старые заказы
+    return int(time.time() * 1000) - (2 * 60 * 60 * 1000)
 
 
 async def _fetch(token: str, url: str, params: dict = None) -> dict | None:
@@ -76,7 +73,6 @@ async def get_new_orders(token: str) -> list:
 
 
 async def get_order_entries(token: str, order_id: str) -> list:
-    """Получаем товары конкретного заказа"""
     if DEMO_MODE:
         return []
 
@@ -115,7 +111,6 @@ def _parse_orders(raw: dict) -> list:
 
 
 async def get_products(token: str) -> list:
-    """Товары через API недоступны — возвращаем пустой список"""
     if DEMO_MODE:
         return fake_products()
     return []
