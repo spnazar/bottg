@@ -16,7 +16,9 @@ _db     = None
 def _get_db():
     global _client, _db
     if _db is None:
-        _client = MongoClient(MONGO_URL)
+        url = os.environ.get("MONGO_URL", "NOT_FOUND")
+        print(f"[storage] MONGO_URL: {url[:30]}...")
+        _client = MongoClient(url)
         _db     = _client["kaspi"]
     return _db
 
