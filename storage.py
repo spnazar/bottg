@@ -1,13 +1,15 @@
 """
 storage.py — хранение данных в JSON файлах
 """
-
 import json
 import os
 
-SELLERS_FILE  = "sellers.json"
-ORDERS_FILE   = "orders.json"
-PRODUCTS_FILE = "products.json"
+DATA_DIR = os.environ.get("DATA_DIR", ".")
+os.makedirs(DATA_DIR, exist_ok=True)
+
+SELLERS_FILE  = os.path.join(DATA_DIR, "sellers.json")
+ORDERS_FILE   = os.path.join(DATA_DIR, "orders.json")
+PRODUCTS_FILE = os.path.join(DATA_DIR, "products.json")
 
 
 def _read(path: str, default):
