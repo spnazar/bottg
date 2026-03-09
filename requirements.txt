@@ -4,3 +4,4 @@ apscheduler==3.10.4
 beautifulsoup4==4.12.2
 python-dotenv==1.0.0
 httpx==0.26.0
+pymongo[srv]==4.6.1
